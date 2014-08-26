@@ -1,0 +1,21 @@
+--- shibboleth.php	2014-08-26 10:43:12.404027688 -0400
++++ shibboleth.php-FPM	2014-08-26 10:43:54.760027274 -0400
+@@ -127,8 +127,7 @@
+  */
+ function shibboleth_session_active() { 
+ 	$active = false;
+-
+-	$session_headers = array('Shib-Session-ID', 'HTTP_SHIB_IDENTITY_PROVIDER');
++	$session_headers = array('REDIRECT_Shib-Session-ID', 'REDIRECT_Shib_Identity_Provider');
+ 	foreach ($session_headers as $header) {
+ 		if ( array_key_exists($header, $_SERVER) && !empty($_SERVER[$header]) ) {
+ 			$active = true;
+@@ -307,7 +306,7 @@
+ 	// update user data
+ 	update_usermeta($user->ID, 'shibboleth_account', true);
+ 	// set affiliation
+-	update_user_meta($user->ID, 'duke_affiliation', $_SERVER['affiliation']);
++	update_user_meta($user->ID, 'duke_affiliation', $_SERVER['REDIRECT_affiliation']);
+ 	shibboleth_update_user_data($user->ID);
+ 	if ( shibboleth_get_option('shibboleth_update_roles') ) {
+ 		$user->set_role($user_role);

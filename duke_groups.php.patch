@@ -1,0 +1,137 @@
+--- duke_groups.php	2014-08-26 10:43:29.548027520 -0400
++++ duke_groups.php-FPM	2014-08-26 10:44:13.512027091 -0400
+@@ -31,12 +31,12 @@
+ 						"blog_id = %d AND role = %s";
+ 			$exists = $wpdb->get_var($wpdb->prepare($sql,$group_name,$blog_id,$role));
+ 			if (!$exists) {
+-				error_log("adding row: {$group_name}, {$blog_id}, {$role}");
++				//error_log("adding row: {$group_name}, {$blog_id}, {$role}");
+ 				$wpdb->insert($table_name, array('group_name'=>$group_name, 
+ 							'blog_id'=>$blog_id,
+ 							'role'=>$role),array('%s','%d','%s'));
+ 			} else {
+-				error_log("row already existed: {$group_name}, {$blog_id}, {$role}");
++				//error_log("row already existed: {$group_name}, {$blog_id}, {$role}");
+ 			}
+ 		}
+ 	}	
+@@ -65,35 +65,38 @@
+ 		//error_log("checking groups for ".$user->user_login);
+ 	
+    	$newList = array();
+-   	$memberStr = $_SERVER[ismemberof];
++    	$memberStr = $_SERVER['REDIRECT_ismemberof'];
++    	//$memberStr = $_SERVER[ismemberof];
+    	if ($memberStr) {
+      	$newList = explode(";",$memberStr);
+    	}   
+ 		$user_memberships = duke_groups_get_blog_groups($newList);
+ 		foreach ($user_memberships as $group_info) {
+ 			if (!is_user_member_of_blog($user->ID, $group_info['blog_id'])) {
+-				error_log("adding ".$user->user_login." to ".$group_info['blog_id'].
+-					" as a ".$group_info['role']);
++				//error_log("adding ".$user->user_login." to ".$group_info['blog_id'].
++					//" as a ".$group_info['role']);
+ 				add_user_to_blog($group_info['blog_id'], $user->ID, $group_info['role']);
+ 			} else {
+-				error_log($user->user_login." already a member of ".$group_info['blog_id']);
++				//error_log($user->user_login." already a member of ".$group_info['blog_id']);
+ 			}
+ 		}
+  	}
+ }
+ add_action('wp_login','duke_groups_update_membership',12);
+ 
+-
++// Show the Duke login area
++add_action('login_message', 'duke_groups_login_message');
+ function duke_groups_login_message() {
+ 	$login_url = add_query_arg('action', 'shibboleth');
+-	$message = "<div class='message'><label style='font-size:17px;'>Members of the Duke Community:</label>";
++#	$message = "<div class='message' ><label style='font-size:17px;'>Members of the Duke Community<br>(including Guest users):</label>";
++	$message = "<div class='message' >";
+ 	$message .= '<form style="margin-top:15px;padding-bottom:20px;margin-bottom:10px">';
+-	$message .= '<label>To login with your Duke NetID:</label>';
+-	$message .= '<div style="font-size:17px;"><a href="'.$login_url.'">Click Here</a></div>';
+-	$message .=" </form>Non-Duke users, please use the box below to log in.</div>";
++	$message .= '<div style="font-size:17px;"><a href="'.$login_url.'">Click here</a> to log in with your Duke NetID or as a Duke guest.</div>';
++	#$message .= '<div style="font-size:17px;"><a href="'.$login_url.'">Click Here to Login</a></div>';
++#	$message .=" </form>Duke WordPress internal users, please use the box below to log in.</div>";
++	$message .=" </form>If you do not have a Duke NetID or Duke-granted guest account, please log in using the box below.</div>";
+ 	return $message;
+ }
+-add_action('login_message', 'duke_groups_login_message');
+ 
+ function duke_groups_check_user_access() {
+ 	global $current_blog;
+@@ -117,7 +120,13 @@
+ 
+ function duke_groups_admin_menu (){
+ 	global $current_blog;
++?>
+ 
++<div class="wrap">
++<?php screen_icon(); ?>
++<h2 id="duke-groups"> <?php echo _x( 'Duke Groups', 'user' );?> </h2>
++
++<?php
+ 	if (@$_POST["submit"] != "" && array_key_exists('dga',$_POST) && is_super_admin()) {
+ 		$msg = "Group change failed";
+ 		if ($_POST['submit']=='add' && @$_POST["new_group"] != "" && @$current_blog->blog_id) {
+@@ -145,9 +154,8 @@
+ 	if ((!is_null($groups) && !empty($groups))  || is_super_admin()) { 
+ ?>
+ 		<div style="margin-right:1%;float:left;"> 
+-		<hr>
+  	 	<h3>Duke Groups Access</h3>
+-  	<div id="message" class="highlight fade">
++  	<div id="message" class="highlight fade" style="display:none;">
+    	 <p><strong><?php echo $msg ?></strong></p>
+   	</div>
+ <?php 
+@@ -167,7 +175,6 @@
+ 			echo "{$group_info['role']} - $t\n";
+ 			echo "<br />\n";
+ 		}
+-
+ 	} elseif (is_super_admin()) {
+ 		echo  '
+ 	<p>
+@@ -197,9 +204,31 @@
+ 			</form>
+ 			';
+ 		}
++	} elseif ((!is_null($groups) || empty($groups))) { 
++?>
++		<p>
++			<h4>Currently there are no Duke Groups associated with this site. </h4>
++			The easiest way to 
++associate Duke Groups with a site is to create the site from the 
++      <a href="https://toolkits.oit.duke.edu" target="oz_window"> Toolkits Application </a>.  
++			<br>
++For further information please contact the <a href="/about/contact/" target='help'>Duke WordPress Team</a>.
++
++		</p>
++<?php
+ 	}
++	echo "</div>";
+ }
+ //add_action('blog_privacy_selector', 'duke_groups_admin_menu');
++if (is_admin()) {
++	add_action('admin_menu', 'add_config_page', 10, 2);
++}
++function add_config_page() {
++	$h = add_submenu_page('users.php', 'Duke Groups Admin', 'Duke Groups', 'add_users', basename(__FILE__), 'duke_groups_admin_menu');
++	add_contextual_help($h,
++        '<p>' . __('Duke Groups simplifies group maintenance and allows users to reuse groups across applications. All courses and many departments are already created in Duke Groups. If this site was created using Toolkits (or is a subsite of a site created using Toolkits), then it was set up with Duke Groups. You can alter the role of groups. If you need additional groups, please contact the <a href="http://sites.duke.edu/about/contact/">WordPress Team</a>.') . '</p>' );
++}
++
+ 
+ add_action('duke_new_subsite','clone_duke_groups', 10, 2);
+ 
+@@ -243,4 +272,5 @@
+ 	$list  = $wpdb->get_results($sql, ARRAY_A );
+ 	return $list;
+ }
++
+ ?>
